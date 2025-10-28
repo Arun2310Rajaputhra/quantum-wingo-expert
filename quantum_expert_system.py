@@ -6,72 +6,95 @@ import time
 import os
 from datetime import datetime
 import logging
+import sys
 
-# Configure logging
+# Configure logging and immediate print output
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+print("🚀 START: Quantum Expert System Starting...")
+sys.stdout.flush()
 
 class QuantumExpertSystem:
     def __init__(self):
+        print("🔍 DEBUG: Initializing QuantumExpertSystem...")
+        sys.stdout.flush()
+        
         self.telegram_bot_token = os.getenv('TELEGRAM_BOT_TOKEN')
         self.telegram_channel_id = os.getenv('TELEGRAM_CHANNEL_ID')
+        
+        print(f"🔍 DEBUG: Token exists: {bool(self.telegram_bot_token)}")
+        print(f"🔍 DEBUG: Channel ID exists: {bool(self.telegram_channel_id)}")
+        sys.stdout.flush()
+        
         self.db_path = "quantum_predictions.db"
         self.init_database()
         
     def init_database(self):
         """Initialize SQLite database for storing predictions and results"""
-        conn = sqlite3.connect(self.db_path)
-        cursor = conn.cursor()
-        cursor.execute('''
-            CREATE TABLE IF NOT EXISTS predictions (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                timestamp TEXT,
-                period INTEGER,
-                prediction TEXT,
-                actual_result TEXT,
-                strategy_used TEXT,
-                confidence REAL
-            )
-        ''')
-        conn.commit()
-        conn.close()
-        logging.info("Database initialized")
+        print("🔍 DEBUG: Initializing database...")
+        sys.stdout.flush()
+        try:
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS predictions (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    timestamp TEXT,
+                    period INTEGER,
+                    prediction TEXT,
+                    actual_result TEXT,
+                    strategy_used TEXT,
+                    confidence REAL
+                )
+            ''')
+            conn.commit()
+            conn.close()
+            print("✅ DEBUG: Database initialized successfully")
+            sys.stdout.flush()
+        except Exception as e:
+            print(f"❌ DEBUG: Database init error: {e}")
+            sys.stdout.flush()
 
     def get_historical_data(self):
         """Fetch historical WinGo data"""
+        print("🔍 DEBUG: Getting historical data...")
+        sys.stdout.flush()
         try:
-            url = "https://api.wingo.com/historical"  # Example API
-            response = requests.get(url, timeout=10)
-            if response.status_code == 200:
-                return response.json()
-            else:
-                # Fallback to simulated data for testing
-                return self.generate_simulated_data()
+            # For now, use simulated data
+            print("🔍 DEBUG: Using simulated data...")
+            sys.stdout.flush()
+            return self.generate_simulated_data()
         except Exception as e:
-            logging.warning(f"API fetch failed, using simulated data: {e}")
+            print(f"❌ DEBUG: Historical data error: {e}")
+            sys.stdout.flush()
             return self.generate_simulated_data()
 
     def generate_simulated_data(self):
         """Generate realistic simulated WinGo data"""
+        print("🔍 DEBUG: Generating simulated data...")
+        sys.stdout.flush()
         periods = []
         results = []
         current_time = int(time.time() * 1000)
         
         for i in range(100):
-            period = current_time - (i * 60000)  # 1 minute intervals
-            # Realistic pattern: more big numbers, some streaks
+            period = current_time - (i * 60000)
             if i % 20 == 0:
-                result = "B"  # Force big for pattern
+                result = "B"
             elif i % 15 == 0:
-                result = "S"  # Force small for pattern
+                result = "S"
             else:
                 result = np.random.choice(["B", "S"], p=[0.45, 0.55])
             periods.append(period)
             results.append(result)
         
+        print(f"✅ DEBUG: Generated {len(results)} data points")
+        sys.stdout.flush()
         return {"periods": periods, "results": results}
 
     def calculate_features(self, data):
         """Advanced feature engineering from original quantum system"""
+        print("🔍 DEBUG: Calculating features...")
+        sys.stdout.flush()
         results = data["results"]
         
         features = {
@@ -84,6 +107,9 @@ class QuantumExpertSystem:
             "pattern_score": self.pattern_recognition(results),
             "trend_strength": self.trend_analysis(results)
         }
+        
+        print(f"✅ DEBUG: Features calculated: {features}")
+        sys.stdout.flush()
         return features
 
     def get_current_streak(self, results):
@@ -113,18 +139,15 @@ class QuantumExpertSystem:
         if len(results) < 10:
             return 0.5
         
-        # Look for repeating patterns
         recent = results[-10:]
         pattern_score = 0
         
-        # Check for alternation pattern
         alternations = 0
         for i in range(1, len(recent)):
             if recent[i] != recent[i-1]:
                 alternations += 1
         pattern_score += alternations / 9 * 0.3
         
-        # Check for streak pattern
         if self.get_current_streak(recent) >= 3:
             pattern_score += 0.4
         
@@ -144,7 +167,9 @@ class QuantumExpertSystem:
 
     def neural_lite_prediction(self, features):
         """Lightweight neural network inspired prediction"""
-        # Simplified version of our neural logic
+        print("🔍 DEBUG: Running neural lite prediction...")
+        sys.stdout.flush()
+        
         weights = {
             "big_count_5": 0.15,
             "small_count_5": -0.15,
@@ -160,24 +185,30 @@ class QuantumExpertSystem:
         for feature, value in features.items():
             prediction_score += weights.get(feature, 0) * value
         
-        # Normalize to probability
         probability = 1 / (1 + np.exp(-prediction_score))
+        print(f"✅ DEBUG: Neural prediction: {probability:.3f}")
+        sys.stdout.flush()
         return probability
 
     def statistical_analysis(self, features):
         """Statistical probability calculation"""
+        print("🔍 DEBUG: Running statistical analysis...")
+        sys.stdout.flush()
         big_prob = features["big_count_5"] / 5 * 0.6 + features["big_count_10"] / 10 * 0.4
+        print(f"✅ DEBUG: Statistical prediction: {big_prob:.3f}")
+        sys.stdout.flush()
         return big_prob
 
     def combine_strategies(self, features):
         """Combine multiple AI strategies with adaptive weights"""
-        # Get predictions from all strategies
+        print("🔍 DEBUG: Combining strategies...")
+        sys.stdout.flush()
+        
         neural_pred = self.neural_lite_prediction(features)
         statistical_pred = self.statistical_analysis(features)
         pattern_pred = features["pattern_score"]
         trend_pred = features["trend_strength"]
         
-        # Adaptive weights based on feature strength
         weights = {
             "neural": 0.35,
             "statistical": 0.25,
@@ -185,7 +216,6 @@ class QuantumExpertSystem:
             "trend": 0.15
         }
         
-        # Adjust weights based on volatility
         if features["volatility"] > 0.7:
             weights["pattern"] += 0.1
             weights["trend"] -= 0.1
@@ -193,7 +223,6 @@ class QuantumExpertSystem:
             weights["statistical"] += 0.1
             weights["neural"] -= 0.1
         
-        # Calculate final prediction
         final_prediction = (
             neural_pred * weights["neural"] +
             statistical_pred * weights["statistical"] +
@@ -201,26 +230,26 @@ class QuantumExpertSystem:
             trend_pred * weights["trend"]
         )
         
+        print(f"✅ DEBUG: Final prediction score: {final_prediction:.3f}")
+        print(f"✅ DEBUG: Strategy weights: {weights}")
+        sys.stdout.flush()
+        
         return final_prediction, weights
 
     def make_prediction(self):
         """Make expert prediction using combined AI strategies"""
+        print("🔍 DEBUG: Starting make_prediction...")
+        sys.stdout.flush()
         try:
-            # Get historical data
             historical_data = self.get_historical_data()
-            
-            # Calculate advanced features
             features = self.calculate_features(historical_data)
-            
-            # Get combined prediction from all strategies
             final_probability, strategy_weights = self.combine_strategies(features)
             
-            # Make final decision
             prediction = "B" if final_probability > 0.5 else "S"
             confidence = final_probability if prediction == "B" else 1 - final_probability
             
-            logging.info(f"Expert Prediction: {prediction} (Confidence: {confidence:.2f})")
-            logging.info(f"Strategy Weights: {strategy_weights}")
+            print(f"🎯 DEBUG: Final Prediction: {prediction} (Confidence: {confidence:.2f})")
+            sys.stdout.flush()
             
             return {
                 "prediction": prediction,
@@ -230,31 +259,55 @@ class QuantumExpertSystem:
             }
             
         except Exception as e:
-            logging.error(f"Prediction error: {e}")
+            print(f"❌ DEBUG: Prediction error: {e}")
+            sys.stdout.flush()
             return {"prediction": "B", "confidence": 0.5, "error": str(e)}
 
     def send_telegram_message(self, message):
-        """Send message to Telegram channel"""
+        """Send message to Telegram channel with debug info"""
+        print("🔍 DEBUG: Starting Telegram send...")
+        sys.stdout.flush()
         try:
+            print(f"🔍 DEBUG: Token: {self.telegram_bot_token[:10]}..." if self.telegram_bot_token else "❌ DEBUG: No token")
+            print(f"🔍 DEBUG: Channel ID: {self.telegram_channel_id}")
+            sys.stdout.flush()
+            
+            if not self.telegram_bot_token or not self.telegram_channel_id:
+                print("❌ DEBUG: Missing token or channel ID")
+                sys.stdout.flush()
+                return False
+                
             url = f"https://api.telegram.org/bot{self.telegram_bot_token}/sendMessage"
             payload = {
                 "chat_id": self.telegram_channel_id,
                 "text": message,
                 "parse_mode": "HTML"
             }
+            
+            print("🔍 DEBUG: Sending request to Telegram...")
+            sys.stdout.flush()
             response = requests.post(url, json=payload, timeout=10)
+            print(f"🔍 DEBUG: Response status: {response.status_code}")
+            print(f"🔍 DEBUG: Response text: {response.text}")
+            sys.stdout.flush()
+            
             if response.status_code == 200:
-                logging.info("Message sent to Telegram")
+                print("✅ DEBUG: Telegram message sent successfully!")
+                sys.stdout.flush()
                 return True
             else:
-                logging.error(f"Telegram API error: {response.status_code}")
+                print(f"❌ DEBUG: Telegram API error: {response.status_code}")
+                sys.stdout.flush()
                 return False
         except Exception as e:
-            logging.error(f"Telegram send error: {e}")
+            print(f"❌ DEBUG: Telegram send error: {e}")
+            sys.stdout.flush()
             return False
 
     def save_prediction(self, prediction_data):
         """Save prediction to database"""
+        print("🔍 DEBUG: Saving prediction to database...")
+        sys.stdout.flush()
         try:
             conn = sqlite3.connect(self.db_path)
             cursor = conn.cursor()
@@ -270,12 +323,17 @@ class QuantumExpertSystem:
             ))
             conn.commit()
             conn.close()
-            logging.info("Prediction saved to database")
+            print("✅ DEBUG: Prediction saved to database")
+            sys.stdout.flush()
         except Exception as e:
-            logging.error(f"Database save error: {e}")
+            print(f"❌ DEBUG: Database save error: {e}")
+            sys.stdout.flush()
 
     def format_prediction_message(self, prediction_data):
         """Format beautiful Telegram message"""
+        print("🔍 DEBUG: Formatting Telegram message...")
+        sys.stdout.flush()
+        
         prediction = prediction_data["prediction"]
         confidence = prediction_data["confidence"]
         features = prediction_data.get("features", {})
@@ -303,29 +361,57 @@ class QuantumExpertSystem:
 
 ⏰ <i>Generated: {datetime.now().strftime('%H:%M:%S')}</i>
         """
+        print("✅ DEBUG: Message formatted")
+        sys.stdout.flush()
         return message.strip()
 
     def run(self):
         """Main execution function"""
+        print("🔍 DEBUG: Entering run method")
+        sys.stdout.flush()
         try:
-            logging.info("Starting Quantum Expert System...")
+            print("🎯 START: Quantum Expert System Running...")
+            sys.stdout.flush()
             
             # Make expert prediction
+            print("🔍 DEBUG: Before make_prediction")
+            sys.stdout.flush()
             prediction_data = self.make_prediction()
+            print(f"🔍 DEBUG: Prediction data: {prediction_data}")
+            sys.stdout.flush()
             
             # Format and send message
+            print("🔍 DEBUG: Before format_prediction_message")
+            sys.stdout.flush()
             message = self.format_prediction_message(prediction_data)
-            self.send_telegram_message(message)
+            print("🔍 DEBUG: Before send_telegram_message")
+            sys.stdout.flush()
+            
+            telegram_success = self.send_telegram_message(message)
+            print(f"🔍 DEBUG: Telegram success: {telegram_success}")
+            sys.stdout.flush()
             
             # Save to database
+            print("🔍 DEBUG: Before save_prediction")
+            sys.stdout.flush()
             self.save_prediction(prediction_data)
             
-            logging.info("Quantum Expert System completed successfully")
+            print("✅ SUCCESS: Quantum Expert System completed successfully")
+            sys.stdout.flush()
             
         except Exception as e:
-            logging.error(f"System error: {e}")
-            self.send_telegram_message(f"❌ System Error: {str(e)}")
+            print(f"❌ ERROR: System error: {e}")
+            sys.stdout.flush()
+            try:
+                self.send_telegram_message(f"❌ System Error: {str(e)}")
+            except:
+                print("❌ DEBUG: Could not send error message to Telegram")
+                sys.stdout.flush()
 
 if __name__ == "__main__":
+    print("🎯 MAIN: Starting Quantum Expert System")
+    sys.stdout.flush()
     expert_system = QuantumExpertSystem()
     expert_system.run()
+    print("🏁 MAIN: Script completed")
+    sys.stdout.flush()
