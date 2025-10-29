@@ -1,280 +1,91 @@
-import requests
-import pandas as pd
-import numpy as np
-import sqlite3
+# quantum_expert_system.py
 import time
+import sqlite3
+import numpy as np
+import requests
 import os
 from datetime import datetime
-import logging
-import sys
-
-# Configure logging and immediate print output
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
-print("🚀 START: Quantum Expert System Starting...")
-sys.stdout.flush()
+from selenium import webdriver
+from selenium.webdriver.common.by import By
+from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
+from selenium.webdriver.common.action_chains import ActionChains
+import json
 
 class QuantumExpertSystem:
-    def __init__(self):
-        print("🔍 DEBUG: Initializing QuantumExpertSystem...")
-        sys.stdout.flush()
-        
+    def __init__(self, game_type="1M"):
+        self.game_type = game_type
         self.telegram_bot_token = os.getenv('TELEGRAM_BOT_TOKEN')
         self.telegram_channel_id = os.getenv('TELEGRAM_CHANNEL_ID')
+        self.club55_username = os.getenv('CLUB55_USERNAME')
+        self.club55_password = os.getenv('CLUB55_PASSWORD')
         
-        print(f"🔍 DEBUG: Token exists: {bool(self.telegram_bot_token)}")
-        print(f"🔍 DEBUG: Channel ID exists: {bool(self.telegram_channel_id)}")
-        sys.stdout.flush()
-        
-        self.db_path = "quantum_predictions.db"
-        self.init_database()
-        
-    def init_database(self):
-        """Initialize SQLite database for storing predictions and results"""
-        print("🔍 DEBUG: Initializing database...")
-        sys.stdout.flush()
+        self.setup_quantum_database()
+        self.setup_browser()
+        self.current_running_period = None
+
+    def setup_quantum_database(self):
+        """Initialize quantum database"""
         try:
-            conn = sqlite3.connect(self.db_path)
-            cursor = conn.cursor()
-            cursor.execute('''
-                CREATE TABLE IF NOT EXISTS predictions (
+            self.conn = sqlite3.connect('quantum_data.db', check_same_thread=False)
+            self.cursor = self.conn.cursor()
+            
+            self.cursor.execute('''
+                CREATE TABLE IF NOT EXISTS quantum_game_results (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    timestamp TEXT,
-                    period INTEGER,
-                    prediction TEXT,
-                    actual_result TEXT,
-                    strategy_used TEXT,
-                    confidence REAL
+                    period TEXT UNIQUE,
+                    number INTEGER,
+                    big_small TEXT,
+                    color TEXT,
+                    scraped_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    game_type TEXT
                 )
             ''')
-            conn.commit()
-            conn.close()
-            print("✅ DEBUG: Database initialized successfully")
-            sys.stdout.flush()
+            
+            self.cursor.execute('''
+                CREATE TABLE IF NOT EXISTS quantum_predictions (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    period TEXT UNIQUE,
+                    prediction TEXT,
+                    confidence FLOAT,
+                    strategy_used TEXT,
+                    actual_result TEXT,
+                    is_correct BOOLEAN,
+                    predicted_at DATETIME DEFAULT CURRENT_TIMESTAMP
+                )
+            ''')
+            
+            self.conn.commit()
+            print("✅ Quantum database initialized")
+            
         except Exception as e:
-            print(f"❌ DEBUG: Database init error: {e}")
-            sys.stdout.flush()
+            print(f"❌ Database setup failed: {e}")
+            raise
 
-    def get_historical_data(self):
-        """Fetch historical WinGo data"""
-        print("🔍 DEBUG: Getting historical data...")
-        sys.stdout.flush()
+    def setup_browser(self):
+        """Setup Chrome browser for GitHub Actions"""
         try:
-            # For now, use simulated data
-            print("🔍 DEBUG: Using simulated data...")
-            sys.stdout.flush()
-            return self.generate_simulated_data()
-        except Exception as e:
-            print(f"❌ DEBUG: Historical data error: {e}")
-            sys.stdout.flush()
-            return self.generate_simulated_data()
-
-    def generate_simulated_data(self):
-        """Generate realistic simulated WinGo data"""
-        print("🔍 DEBUG: Generating simulated data...")
-        sys.stdout.flush()
-        periods = []
-        results = []
-        current_time = int(time.time() * 1000)
-        
-        for i in range(100):
-            period = current_time - (i * 60000)
-            if i % 20 == 0:
-                result = "B"
-            elif i % 15 == 0:
-                result = "S"
-            else:
-                result = np.random.choice(["B", "S"], p=[0.45, 0.55])
-            periods.append(period)
-            results.append(result)
-        
-        print(f"✅ DEBUG: Generated {len(results)} data points")
-        sys.stdout.flush()
-        return {"periods": periods, "results": results}
-
-    def calculate_features(self, data):
-        """Advanced feature engineering from original quantum system"""
-        print("🔍 DEBUG: Calculating features...")
-        sys.stdout.flush()
-        results = data["results"]
-        
-        features = {
-            "big_count_5": results[-5:].count("B"),
-            "small_count_5": results[-5:].count("S"),
-            "big_count_10": results[-10:].count("B"),
-            "small_count_10": results[-10:].count("S"),
-            "current_streak": self.get_current_streak(results),
-            "volatility": self.calculate_volatility(results[-20:]),
-            "pattern_score": self.pattern_recognition(results),
-            "trend_strength": self.trend_analysis(results)
-        }
-        
-        print(f"✅ DEBUG: Features calculated: {features}")
-        sys.stdout.flush()
-        return features
-
-    def get_current_streak(self, results):
-        """Calculate current streak length"""
-        if not results:
-            return 0
-        last_result = results[-1]
-        streak = 0
-        for result in reversed(results):
-            if result == last_result:
-                streak += 1
-            else:
-                break
-        return streak
-
-    def calculate_volatility(self, results):
-        """Calculate market volatility"""
-        if len(results) < 2:
-            return 0
-        changes = []
-        for i in range(1, len(results)):
-            changes.append(1 if results[i] != results[i-1] else 0)
-        return sum(changes) / len(changes) if changes else 0
-
-    def pattern_recognition(self, results):
-        """Advanced pattern recognition from original system"""
-        if len(results) < 10:
-            return 0.5
-        
-        recent = results[-10:]
-        pattern_score = 0
-        
-        alternations = 0
-        for i in range(1, len(recent)):
-            if recent[i] != recent[i-1]:
-                alternations += 1
-        pattern_score += alternations / 9 * 0.3
-        
-        if self.get_current_streak(recent) >= 3:
-            pattern_score += 0.4
-        
-        return min(pattern_score, 1.0)
-
-    def trend_analysis(self, results):
-        """Trend strength analysis"""
-        if len(results) < 5:
-            return 0.5
-        
-        recent = results[-5:]
-        big_count = recent.count("B")
-        small_count = recent.count("S")
-        
-        trend_strength = abs(big_count - small_count) / 5
-        return trend_strength
-
-    def neural_lite_prediction(self, features):
-        """Lightweight neural network inspired prediction"""
-        print("🔍 DEBUG: Running neural lite prediction...")
-        sys.stdout.flush()
-        
-        weights = {
-            "big_count_5": 0.15,
-            "small_count_5": -0.15,
-            "big_count_10": 0.10,
-            "small_count_10": -0.10,
-            "current_streak": 0.25,
-            "volatility": -0.20,
-            "pattern_score": 0.30,
-            "trend_strength": 0.20
-        }
-        
-        prediction_score = 0
-        for feature, value in features.items():
-            prediction_score += weights.get(feature, 0) * value
-        
-        probability = 1 / (1 + np.exp(-prediction_score))
-        print(f"✅ DEBUG: Neural prediction: {probability:.3f}")
-        sys.stdout.flush()
-        return probability
-
-    def statistical_analysis(self, features):
-        """Statistical probability calculation"""
-        print("🔍 DEBUG: Running statistical analysis...")
-        sys.stdout.flush()
-        big_prob = features["big_count_5"] / 5 * 0.6 + features["big_count_10"] / 10 * 0.4
-        print(f"✅ DEBUG: Statistical prediction: {big_prob:.3f}")
-        sys.stdout.flush()
-        return big_prob
-
-    def combine_strategies(self, features):
-        """Combine multiple AI strategies with adaptive weights"""
-        print("🔍 DEBUG: Combining strategies...")
-        sys.stdout.flush()
-        
-        neural_pred = self.neural_lite_prediction(features)
-        statistical_pred = self.statistical_analysis(features)
-        pattern_pred = features["pattern_score"]
-        trend_pred = features["trend_strength"]
-        
-        weights = {
-            "neural": 0.35,
-            "statistical": 0.25,
-            "pattern": 0.25,
-            "trend": 0.15
-        }
-        
-        if features["volatility"] > 0.7:
-            weights["pattern"] += 0.1
-            weights["trend"] -= 0.1
-        elif features["volatility"] < 0.3:
-            weights["statistical"] += 0.1
-            weights["neural"] -= 0.1
-        
-        final_prediction = (
-            neural_pred * weights["neural"] +
-            statistical_pred * weights["statistical"] +
-            pattern_pred * weights["pattern"] +
-            trend_pred * weights["trend"]
-        )
-        
-        print(f"✅ DEBUG: Final prediction score: {final_prediction:.3f}")
-        print(f"✅ DEBUG: Strategy weights: {weights}")
-        sys.stdout.flush()
-        
-        return final_prediction, weights
-
-    def make_prediction(self):
-        """Make expert prediction using combined AI strategies"""
-        print("🔍 DEBUG: Starting make_prediction...")
-        sys.stdout.flush()
-        try:
-            historical_data = self.get_historical_data()
-            features = self.calculate_features(historical_data)
-            final_probability, strategy_weights = self.combine_strategies(features)
+            chrome_options = Options()
+            chrome_options.add_argument("--headless=new")
+            chrome_options.add_argument("--no-sandbox")
+            chrome_options.add_argument("--disable-dev-shm-usage")
+            chrome_options.add_argument("--disable-gpu")
+            chrome_options.add_argument("--window-size=1920,1080")
+            chrome_options.add_argument("--ignore-certificate-errors")
             
-            prediction = "B" if final_probability > 0.5 else "S"
-            confidence = final_probability if prediction == "B" else 1 - final_probability
-            
-            print(f"🎯 DEBUG: Final Prediction: {prediction} (Confidence: {confidence:.2f})")
-            sys.stdout.flush()
-            
-            return {
-                "prediction": prediction,
-                "confidence": confidence,
-                "strategy_weights": strategy_weights,
-                "features": features
-            }
+            self.driver = webdriver.Chrome(options=chrome_options)
+            self.wait = WebDriverWait(self.driver, 15)
+            print("✅ Browser setup complete")
             
         except Exception as e:
-            print(f"❌ DEBUG: Prediction error: {e}")
-            sys.stdout.flush()
-            return {"prediction": "B", "confidence": 0.5, "error": str(e)}
+            print(f"❌ Browser setup failed: {e}")
+            raise
 
     def send_telegram_message(self, message):
-        """Send message to Telegram channel with debug info"""
-        print("🔍 DEBUG: Starting Telegram send...")
-        sys.stdout.flush()
+        """Send message to Telegram"""
         try:
-            print(f"🔍 DEBUG: Token: {self.telegram_bot_token[:10]}..." if self.telegram_bot_token else "❌ DEBUG: No token")
-            print(f"🔍 DEBUG: Channel ID: {self.telegram_channel_id}")
-            sys.stdout.flush()
-            
             if not self.telegram_bot_token or not self.telegram_channel_id:
-                print("❌ DEBUG: Missing token or channel ID")
-                sys.stdout.flush()
                 return False
                 
             url = f"https://api.telegram.org/bot{self.telegram_bot_token}/sendMessage"
@@ -284,134 +95,470 @@ class QuantumExpertSystem:
                 "parse_mode": "HTML"
             }
             
-            print("🔍 DEBUG: Sending request to Telegram...")
-            sys.stdout.flush()
             response = requests.post(url, json=payload, timeout=10)
-            print(f"🔍 DEBUG: Response status: {response.status_code}")
-            print(f"🔍 DEBUG: Response text: {response.text}")
-            sys.stdout.flush()
+            return response.status_code == 200
             
-            if response.status_code == 200:
-                print("✅ DEBUG: Telegram message sent successfully!")
-                sys.stdout.flush()
-                return True
-            else:
-                print(f"❌ DEBUG: Telegram API error: {response.status_code}")
-                sys.stdout.flush()
-                return False
         except Exception as e:
-            print(f"❌ DEBUG: Telegram send error: {e}")
-            sys.stdout.flush()
+            print(f"❌ Telegram error: {e}")
             return False
 
-    def save_prediction(self, prediction_data):
-        """Save prediction to database"""
-        print("🔍 DEBUG: Saving prediction to database...")
-        sys.stdout.flush()
+    def handle_puzzle_verification(self):
+        """Handle drag-and-drop puzzle verification"""
+        print("🧩 Handling puzzle verification...")
         try:
-            conn = sqlite3.connect(self.db_path)
-            cursor = conn.cursor()
-            cursor.execute('''
-                INSERT INTO predictions (timestamp, period, prediction, strategy_used, confidence)
-                VALUES (?, ?, ?, ?, ?)
-            ''', (
-                datetime.now().isoformat(),
-                int(time.time() * 1000),
-                prediction_data["prediction"],
-                str(prediction_data["strategy_weights"]),
-                prediction_data["confidence"]
-            ))
-            conn.commit()
-            conn.close()
-            print("✅ DEBUG: Prediction saved to database")
-            sys.stdout.flush()
+            # Wait for puzzle element to appear
+            puzzle_selectors = [
+                ".verify-bar",
+                ".slider",
+                ".drag-handle",
+                "[class*='verify']",
+                "[class*='slider']"
+            ]
+            
+            puzzle_element = None
+            for selector in puzzle_selectors:
+                try:
+                    puzzle_element = self.wait.until(
+                        EC.element_to_be_clickable((By.CSS_SELECTOR, selector))
+                    )
+                    if puzzle_element:
+                        break
+                except:
+                    continue
+            
+            if puzzle_element:
+                # Get element size and location
+                size = puzzle_element.size
+                location = puzzle_element.location
+                
+                # Calculate drag distance (typical puzzle verification)
+                drag_distance = size['width'] - 10
+                
+                # Perform drag action
+                actions = ActionChains(self.driver)
+                actions.click_and_hold(puzzle_element)
+                actions.move_by_offset(drag_distance, 0)
+                actions.release()
+                actions.perform()
+                
+                print("✅ Puzzle verification completed")
+                time.sleep(3)
+                return True
+                
         except Exception as e:
-            print(f"❌ DEBUG: Database save error: {e}")
-            sys.stdout.flush()
-
-    def format_prediction_message(self, prediction_data):
-        """Format beautiful Telegram message"""
-        print("🔍 DEBUG: Formatting Telegram message...")
-        sys.stdout.flush()
+            print(f"⚠️ Puzzle handling failed: {e}")
         
+        return False
+
+    def handle_confirmation_screens(self):
+        """Handle multiple confirmation/receive screens"""
+        print("🔄 Handling confirmation screens...")
+        
+        confirmation_selectors = [
+            "button:contains('Confirm')",
+            "button:contains('OK')",
+            "button:contains('Yes')",
+            "button:contains('Agree')",
+            "button:contains('Receive')",
+            ".confirm-btn",
+            ".ok-button",
+            ".btn-confirm"
+        ]
+        
+        max_screens = 6
+        screens_handled = 0
+        
+        for _ in range(max_screens):
+            clicked = False
+            for selector in confirmation_selectors:
+                try:
+                    # Try CSS selector first
+                    buttons = self.driver.find_elements(By.CSS_SELECTOR, selector)
+                    for button in buttons:
+                        if button.is_displayed():
+                            button.click()
+                            print(f"✅ Clicked: {selector}")
+                            clicked = True
+                            screens_handled += 1
+                            time.sleep(2)
+                            break
+                    if clicked:
+                        break
+                except:
+                    continue
+            
+            if not clicked:
+                break
+        
+        print(f"✅ Handled {screens_handled} confirmation screens")
+        return screens_handled > 0
+
+    def navigate_to_1m_game(self):
+        """Navigate to 1M WinGo game"""
+        print("🎮 Navigating to 1M game...")
+        
+        try:
+            # Game page URL
+            game_url = "https://55club.game/#/saasLottery/WinGo?gameCode=WinGo_30S&lottery=WinGo"
+            self.driver.get(game_url)
+            time.sleep(8)
+            
+            # Wait for game to load and switch to 1M
+            game_loaded = False
+            game_indicators = ['Period', 'Number', 'Big', 'Small', 'WinGo']
+            
+            for _ in range(5):
+                page_text = self.driver.find_element(By.TAG_NAME, "body").text
+                if any(indicator in page_text for indicator in game_indicators):
+                    game_loaded = True
+                    break
+                time.sleep(3)
+            
+            if not game_loaded:
+                print("❌ Game page not loaded properly")
+                return False
+            
+            # Switch to 1M game tab
+            tab_selectors = [
+                "button:contains('1M')",
+                "a[href*='1M']",
+                ".tab:contains('1M')",
+                "[class*='1m']",
+                "[class*='one']"
+            ]
+            
+            for selector in tab_selectors:
+                try:
+                    elements = self.driver.find_elements(By.CSS_SELECTOR, selector)
+                    for element in elements:
+                        if element.is_displayed():
+                            element.click()
+                            print("✅ Switched to 1M game")
+                            time.sleep(5)
+                            return True
+                except:
+                    continue
+            
+            print("⚠️ Could not find 1M tab, continuing with current game")
+            return True
+            
+        except Exception as e:
+            print(f"❌ Game navigation failed: {e}")
+            return False
+
+    def perform_login(self):
+        """Perform complete login flow"""
+        print("🔐 Starting login process...")
+        
+        try:
+            # Navigate to login page
+            self.driver.get("https://55club.game/")
+            time.sleep(8)
+            
+            # Check if already logged in
+            if "login" not in self.driver.current_url.lower():
+                print("✅ Already logged in")
+                return True
+            
+            # Find and fill login form
+            username_selectors = [
+                "input[type='text']",
+                "input[name='username']",
+                "input[placeholder*='phone']",
+                "input[placeholder*='email']"
+            ]
+            
+            password_selectors = [
+                "input[type='password']",
+                "input[name='password']"
+            ]
+            
+            # Fill username
+            for selector in username_selectors:
+                try:
+                    username_field = self.driver.find_element(By.CSS_SELECTOR, selector)
+                    username_field.clear()
+                    username_field.send_keys(self.club55_username)
+                    print("✅ Username filled")
+                    break
+                except:
+                    continue
+            
+            # Fill password
+            for selector in password_selectors:
+                try:
+                    password_field = self.driver.find_element(By.CSS_SELECTOR, selector)
+                    password_field.clear()
+                    password_field.send_keys(self.club55_password)
+                    print("✅ Password filled")
+                    break
+                except:
+                    continue
+            
+            # Click login button
+            login_selectors = [
+                "button[type='submit']",
+                "button:contains('Login')",
+                "button:contains('Sign In')"
+            ]
+            
+            for selector in login_selectors:
+                try:
+                    login_btn = self.driver.find_element(By.CSS_SELECTOR, selector)
+                    login_btn.click()
+                    print("✅ Login button clicked")
+                    time.sleep(5)
+                    break
+                except:
+                    continue
+            
+            # Handle puzzle verification
+            self.handle_puzzle_verification()
+            
+            # Handle confirmation screens
+            self.handle_confirmation_screens()
+            
+            print("✅ Login flow completed")
+            return True
+            
+        except Exception as e:
+            print(f"❌ Login failed: {e}")
+            return False
+
+    # QUANTUM PREDICTION ENGINE (From your original code)
+    def extract_game_data(self):
+        """Extract game data from page"""
+        print("🔍 Extracting game data...")
+        
+        data = []
+        try:
+            # Multiple extraction methods
+            body_text = self.driver.find_element(By.TAG_NAME, "body").text
+            lines = [line.strip() for line in body_text.split('\n') if line.strip()]
+            
+            i = 0
+            while i < len(lines) - 2:
+                line1 = lines[i].replace(' ', '').replace('-', '')
+                line2 = lines[i+1].replace(' ', '') if i+1 < len(lines) else ""
+                line3 = lines[i+2] if i+2 < len(lines) else ""
+                
+                if (line1.isdigit() and len(line1) == 17 and
+                    line2.isdigit() and 0 <= int(line2) <= 9 and
+                    line3 in ['Big', 'Small']):
+                    
+                    data.append({
+                        'period': line1,
+                        'number': int(line2),
+                        'big_small': line3,
+                        'color': 'green' if int(line2) == 0 else 'red' if int(line2) % 2 == 1 else 'violet'
+                    })
+                    i += 3
+                else:
+                    i += 1
+                    
+            print(f"📊 Extracted {len(data)} records")
+            return data
+            
+        except Exception as e:
+            print(f"❌ Data extraction failed: {e}")
+            return []
+
+    def quantum_prediction_engine(self, training_data):
+        """Quantum prediction engine"""
+        if len(training_data) < 10:
+            return self.fallback_prediction(training_data)
+        
+        # Analyze recent trends
+        results = [game['big_small'] for game in training_data[:20]]
+        big_count = results.count('Big')
+        total = len(results)
+        
+        # Multiple strategy analysis
+        trend_pred, trend_conf = self.trend_analysis(results)
+        pattern_pred, pattern_conf = self.pattern_analysis(results)
+        statistical_pred, statistical_conf = self.statistical_analysis(results)
+        
+        # Weighted combination
+        final_prediction = trend_pred if trend_conf > pattern_conf else pattern_pred
+        confidence = max(trend_conf, pattern_conf, statistical_conf)
+        
+        reasoning = f"Trend: {trend_pred}({trend_conf:.2f}), Pattern: {pattern_pred}({pattern_conf:.2f})"
+        
+        return {
+            "prediction": final_prediction,
+            "confidence": confidence,
+            "strategy": "quantum_adaptive", 
+            "reasoning": reasoning
+        }
+
+    def trend_analysis(self, results):
+        big_count = results.count('Big')
+        ratio = big_count / len(results) if results else 0.5
+        
+        if ratio > 0.6:
+            return 'Big', 0.75
+        elif ratio < 0.4:
+            return 'Small', 0.75
+        else:
+            return 'Big' if ratio >= 0.5 else 'Small', 0.65
+
+    def pattern_analysis(self, results):
+        if len(results) < 3:
+            return 'Small', 0.5
+            
+        streak = 1
+        for i in range(1, len(results)):
+            if results[i] == results[0]:
+                streak += 1
+            else:
+                break
+                
+        if streak >= 3:
+            opposite = 'Small' if results[0] == 'Big' else 'Big'
+            return opposite, 0.70
+        else:
+            return results[0], 0.60
+
+    def statistical_analysis(self, results):
+        big_count = results.count('Big')
+        return 'Big' if big_count >= len(results)/2 else 'Small', 0.65
+
+    def fallback_prediction(self, training_data):
+        return {
+            "prediction": "Small",
+            "confidence": 0.5, 
+            "strategy": "fallback",
+            "reasoning": "Insufficient data"
+        }
+
+    def format_prediction_message(self, prediction_data, period):
         prediction = prediction_data["prediction"]
         confidence = prediction_data["confidence"]
-        features = prediction_data.get("features", {})
         
         emoji = "🔴" if prediction == "B" else "🔵"
         confidence_color = "🟢" if confidence > 0.7 else "🟡" if confidence > 0.6 else "🟠"
         
         message = f"""
-{emoji} <b>QUANTUM EXPERT PREDICTION</b> {emoji}
+{emoji} <b>QUANTUM PREDICTION</b> {emoji}
 
 🎯 <b>Prediction:</b> <code>{prediction}</code>
 📊 <b>Confidence:</b> <code>{confidence:.2%}</code> {confidence_color}
+🎮 <b>Period:</b> <code>{period}</code>
+🤖 <b>Strategy:</b> <code>{prediction_data['strategy']}</code>
 
-<b>Advanced Analysis:</b>
-📈 Big Count (5): <code>{features.get('big_count_5', 0)}</code>
-📉 Small Count (5): <code>{features.get('small_count_5', 0)}</code>
-🔥 Current Streak: <code>{features.get('current_streak', 0)}</code>
-⚡ Volatility: <code>{features.get('volatility', 0):.2f}</code>
-
-<b>AI Strategies:</b>
-🧠 Neural Lite: <code>{prediction_data['strategy_weights'].get('neural', 0):.2%}</code>
-📊 Statistical: <code>{prediction_data['strategy_weights'].get('statistical', 0):.2%}</code>
-🎯 Pattern Rec: <code>{prediction_data['strategy_weights'].get('pattern', 0):.2%}</code>
-📈 Trend Analysis: <code>{prediction_data['strategy_weights'].get('trend', 0):.2%}</code>
+💡 <b>Analysis:</b>
+{prediction_data['reasoning']}
 
 ⏰ <i>Generated: {datetime.now().strftime('%H:%M:%S')}</i>
         """
-        print("✅ DEBUG: Message formatted")
-        sys.stdout.flush()
         return message.strip()
 
-    def run(self):
-        """Main execution function"""
-        print("🔍 DEBUG: Entering run method")
-        sys.stdout.flush()
-        try:
-            print("🎯 START: Quantum Expert System Running...")
-            sys.stdout.flush()
+    def run_expert_system(self):
+        """Main expert system execution"""
+        print("🚀 QUANTUM EXPERT SYSTEM STARTED")
+        
+        # Send startup message
+        self.send_telegram_message("🔮 <b>Quantum Expert System Started</b>\n🎯 Monitoring WinGo 1M\n🤖 AI Predictions Active")
+        
+        # Perform login and navigation
+        if not self.perform_login():
+            self.send_telegram_message("❌ <b>Login Failed</b>\n🔐 Check credentials")
+            return
             
-            # Make expert prediction
-            print("🔍 DEBUG: Before make_prediction")
-            sys.stdout.flush()
-            prediction_data = self.make_prediction()
-            print(f"🔍 DEBUG: Prediction data: {prediction_data}")
-            sys.stdout.flush()
+        if not self.navigate_to_1m_game():
+            self.send_telegram_message("❌ <b>Game Navigation Failed</b>")
+            return
+        
+        # Main prediction loop
+        print("🔮 Starting prediction cycles...")
+        
+        for cycle in range(5):  # 5 cycles for testing
+            print(f"\n🔄 Cycle {cycle + 1}/5")
             
-            # Format and send message
-            print("🔍 DEBUG: Before format_prediction_message")
-            sys.stdout.flush()
-            message = self.format_prediction_message(prediction_data)
-            print("🔍 DEBUG: Before send_telegram_message")
-            sys.stdout.flush()
-            
-            telegram_success = self.send_telegram_message(message)
-            print(f"🔍 DEBUG: Telegram success: {telegram_success}")
-            sys.stdout.flush()
-            
-            # Save to database
-            print("🔍 DEBUG: Before save_prediction")
-            sys.stdout.flush()
-            self.save_prediction(prediction_data)
-            
-            print("✅ SUCCESS: Quantum Expert System completed successfully")
-            sys.stdout.flush()
-            
-        except Exception as e:
-            print(f"❌ ERROR: System error: {e}")
-            sys.stdout.flush()
             try:
-                self.send_telegram_message(f"❌ System Error: {str(e)}")
-            except:
-                print("❌ DEBUG: Could not send error message to Telegram")
-                sys.stdout.flush()
+                # Extract current data
+                game_data = self.extract_game_data()
+                if game_data:
+                    # Save to database
+                    for game in game_data:
+                        try:
+                            self.cursor.execute('''
+                                INSERT OR IGNORE INTO quantum_game_results 
+                                (period, number, big_small, color, game_type)
+                                VALUES (?, ?, ?, ?, ?)
+                            ''', (game['period'], game['number'], game['big_small'], 
+                                  game['color'], self.game_type))
+                        except:
+                            pass
+                    self.conn.commit()
+                
+                # Get training data
+                training_data = self.get_training_data()
+                
+                # Make prediction
+                prediction_data = self.quantum_prediction_engine(training_data)
+                
+                # Get current period
+                current_period = self.get_current_period()
+                
+                if current_period and current_period != self.current_running_period:
+                    # Send prediction to Telegram
+                    message = self.format_prediction_message(prediction_data, current_period)
+                    self.send_telegram_message(message)
+                    
+                    self.current_running_period = current_period
+                
+                time.sleep(15)  # Wait 15 seconds between cycles
+                
+            except Exception as e:
+                print(f"❌ Cycle error: {e}")
+                time.sleep(10)
+        
+        # Completion message
+        self.send_telegram_message("✅ <b>Quantum System Completed</b>\n📊 5 cycles executed\n🤖 Ready for next run")
+
+    def get_training_data(self, limit=50):
+        """Get training data from database"""
+        try:
+            self.cursor.execute('''
+                SELECT period, number, big_small FROM quantum_game_results 
+                WHERE game_type = ? ORDER BY scraped_at DESC LIMIT ?
+            ''', (self.game_type, limit))
+            
+            return [{'period': p, 'number': n, 'big_small': b} 
+                   for p, n, b in self.cursor.fetchall()]
+        except:
+            return []
+
+    def get_current_period(self):
+        """Get current running period"""
+        try:
+            body_text = self.driver.find_element(By.TAG_NAME, "body").text
+            lines = body_text.split('\n')
+            
+            for line in lines:
+                line = line.strip().replace(' ', '').replace('-', '')
+                if line.isdigit() and len(line) == 17:
+                    return line
+            return None
+        except:
+            return None
+
+    def close(self):
+        """Cleanup resources"""
+        try:
+            self.conn.close()
+            self.driver.quit()
+        except:
+            pass
 
 if __name__ == "__main__":
-    print("🎯 MAIN: Starting Quantum Expert System")
-    sys.stdout.flush()
-    expert_system = QuantumExpertSystem()
-    expert_system.run()
-    print("🏁 MAIN: Script completed")
-    sys.stdout.flush()
+    system = QuantumExpertSystem()
+    
+    try:
+        system.run_expert_system()
+    except Exception as e:
+        print(f"❌ System error: {e}")
+        system.send_telegram_message(f"❌ <b>System Crash</b>\n{str(e)}")
+    finally:
+        system.close()
